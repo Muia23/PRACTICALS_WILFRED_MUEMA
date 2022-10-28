@@ -1,7 +1,7 @@
 from re import I
-from django.shortcuts import render,redirect
+from django.shortcuts import render,redirect,get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse,HttpResponse
 
 
 from .models import (
@@ -44,26 +44,52 @@ def student_edit(request, student_id):
         "student":student,
         "form":StudentForm(instance=student)
     }
+     
+    return render(request, 'student_details.html', context)
+
+def update_student(request, student_id):
+    student = get_object_or_404(Student, id = student_id)    
 
     if request.method == "POST":        
-        form = StudentForm(request.POST)
-        if form.is_valid():       
-            if is_ajax(request):      
-                message = []
+        form = StudentForm(request.POST)        
+        if form.is_valid():                         
+            message = []
 
-                prevname = student.first_name
-                name = form.cleaned_data('first_name')
-                if prevname != name:
-                    student.save(update_fields=['service_img'])
-                    message.append(' Student First Name Updated ')             
+            prevfname = student.first_name
+            fname = form.cleaned_data['first_name']
+            if prevfname != fname:
+                Student.objects.filter(id=student_id).update(first_name=fname)
+                message.append(' Student First Name Updated ')             
 
-                print(message)
+            prevsname = student.second_name
+            sname = form.cleaned_data['second_name']
+            if prevsname != sname:
+                Student.objects.filter(id=student_id).update(second_name=sname)                
+                message.append(' Student Second Name Updated ')
 
-                data = {'message':message}
+            prevage = student.age
+            age = form.cleaned_data['age']
+            if prevage != age:
+                Student.objects.filter(id=student_id).update(age=age)                
+                message.append(' Student Age Updated ')
 
-                return JsonResponse(data) 
+            prevstream = student.mystream
+            stream = form.cleaned_data['mystream']
+            if prevstream != stream:                
+                Student.objects.filter(id=student_id).update(mystream=stream)                
+                message.append(' Student Stream Updated ') 
 
-    return render(request, 'student_details.html', context)
+            prevadm_no = student.adm_no
+            adm_no = form.cleaned_data['adm_no']
+            if prevadm_no != adm_no:
+                student.save(update_fields=['adm_no'])
+                Student.objects.filter(id=student_id).update(adm_no=adm_no)                
+                message.append(' Student Admission Number Updated ')                    
+
+            data = {'message':message}
+
+            return JsonResponse(data)
+
 
 def new_student(request):
     title = "New Student"
@@ -72,21 +98,31 @@ def new_student(request):
     context = {
         "title":title,
         "form":form
-    }
-
-    if request.method == "POST":
-        if form.is_valid():       
-            if is_ajax(request):
-                form.save()
-                # message = "Student has been added"
-
-                # data = {'message':message}
-
-                # return JsonResponse(data) 
-                return redirect('home')        
-
+    }                        
 
     return render(request, 'student_upload.html', context)
+
+def add_student(request):
+    if request.method == "POST":
+        form = StudentForm(request.POST)        
+        if form.is_valid():             
+            if is_ajax(request):
+                fname = form.cleaned_data.get('first_name')
+                form.save()
+                student = get_object_or_404(Student, first_name = fname)                    
+                message = "Student has been added"
+                new_url = redirect('studentDetails', student_id=student.id).url
+
+                data = {'message':message, 'new_url':new_url}
+
+                return JsonResponse(data)  
+
+def delete_student(request,student_id):
+
+    student = get_object_or_404(Student, id = student_id)    
+    student.delete()   
+
+    return HttpResponseRedirect("/")
 
 def stream_view(request,stream_id):
     try :
